@@ -61,6 +61,8 @@ DEEPSEEK_API_KEY="..."
 # MIMO_API_KEY="..."
 ```
 
+如果使用 Vercel 的 “Import .env” 功能，不要直接导入仍包含 `DATABASE_URL="file:..."` 的本地 `.env`，那是 SQLite 地址。已通过 Vercel Neon 集成注入 `DATABASE_URL` 时，不要再用 env 文件覆盖它；只补充 `NEXTAUTH_SECRET`、`NEXTAUTH_URL` 和至少一组 AI 配置即可。也可以参考 `.env.vercel.example` 准备线上环境变量。
+
 4. 首次部署前或部署后，对空库执行一次：
 
 ```bash
