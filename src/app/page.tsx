@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { BarChart3, BookOpen, FileText, Shuffle } from 'lucide-react'
+import { BarChart3, BookOpen, FileText, RefreshCw, Shuffle } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 
 interface Stats {
   totalQuestions: number
@@ -20,6 +21,7 @@ export default function HomePage() {
     practicedToday: 0,
     correctRate: 0,
   })
+  const [statsLoading, setStatsLoading] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login')
@@ -28,7 +30,7 @@ export default function HomePage() {
   useEffect(() => {
     if (status !== 'authenticated') return
 
-    fetch('/api/stats')
+    fetch('/api/stats', { cache: 'no-store' })
       .then((response) => response.json())
       .then((data: Partial<Stats> & { error?: string }) => {
         if (data.error) return
@@ -40,6 +42,27 @@ export default function HomePage() {
       })
       .catch(() => undefined)
   }, [status])
+
+  const recalculateStats = useCallback(async () => {
+    setStatsLoading(true)
+    try {
+      const response = await fetch('/api/stats', {
+        method: 'POST',
+        cache: 'no-store',
+      })
+      const data = (await response.json()) as Partial<Stats> & { error?: string }
+      if (data.error) return
+      setStats({
+        totalQuestions: data.totalQuestions ?? 0,
+        practicedToday: data.practicedToday ?? 0,
+        correctRate: data.correctRate ?? 0,
+      })
+    } catch {
+      // Keep the previous statistics visible if recalculation fails.
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [])
 
   if (status === 'loading') {
     return (
@@ -97,19 +120,28 @@ export default function HomePage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-3 gap-4"
+        className="space-y-3"
       >
-        <div className="rounded-xl bg-white p-4 text-center shadow-sm">
-          <p className="text-2xl font-bold text-primary-600">{stats.totalQuestions}</p>
-          <p className="mt-1 text-xs text-gray-500">总题数</p>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-gray-900">题库概况</h3>
+          <Button variant="ghost" size="sm" loading={statsLoading} onClick={recalculateStats}>
+            {!statsLoading && <RefreshCw className="mr-2 h-4 w-4" />}
+            重新统计
+          </Button>
         </div>
-        <div className="rounded-xl bg-white p-4 text-center shadow-sm">
-          <p className="text-2xl font-bold text-green-600">{stats.practicedToday}</p>
-          <p className="mt-1 text-xs text-gray-500">今日练习</p>
-        </div>
-        <div className="rounded-xl bg-white p-4 text-center shadow-sm">
-          <p className="text-2xl font-bold text-orange-600">{stats.correctRate}%</p>
-          <p className="mt-1 text-xs text-gray-500">正确率</p>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="rounded-xl bg-white p-4 text-center shadow-sm">
+            <p className="text-2xl font-bold text-primary-600">{stats.totalQuestions}</p>
+            <p className="mt-1 text-xs text-gray-500">总题数</p>
+          </div>
+          <div className="rounded-xl bg-white p-4 text-center shadow-sm">
+            <p className="text-2xl font-bold text-green-600">{stats.practicedToday}</p>
+            <p className="mt-1 text-xs text-gray-500">今日练习</p>
+          </div>
+          <div className="rounded-xl bg-white p-4 text-center shadow-sm">
+            <p className="text-2xl font-bold text-orange-600">{stats.correctRate}%</p>
+            <p className="mt-1 text-xs text-gray-500">正确率</p>
+          </div>
         </div>
       </motion.div>
 

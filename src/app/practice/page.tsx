@@ -28,6 +28,7 @@ interface SubmitResult {
 
 interface PracticeResponse {
   questions?: Question[]
+  total?: number
   error?: string
 }
 
@@ -62,6 +63,7 @@ function PracticeContent() {
   const favoriteOnly = searchParams.get('favoriteOnly') === 'true'
 
   const [questions, setQuestions] = useState<Question[]>([])
+  const [questionTotal, setQuestionTotal] = useState(0)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [userAnswers, setUserAnswers] = useState<Record<string, string | string[]>>({})
   const [showResults, setShowResults] = useState<Record<string, boolean>>({})
@@ -80,7 +82,7 @@ function PracticeContent() {
     setError('')
 
     try {
-      const params = new URLSearchParams({ mode, limit: '50' })
+      const params = new URLSearchParams({ mode })
       if (examId) params.set('examId', examId)
       if (category) params.set('category', category)
       if (wrongOnly) params.set('wrongOnly', 'true')
@@ -100,6 +102,7 @@ function PracticeContent() {
       })
 
       setQuestions(nextQuestions)
+      setQuestionTotal(data.total ?? nextQuestions.length)
       setFavorites(favoriteState)
       setCurrentIndex(0)
       setUserAnswers({})
@@ -256,28 +259,36 @@ function PracticeContent() {
         : mode === 'RANDOM'
           ? '随机刷题'
           : '顺序刷题'
+  const totalLabel = mode === 'EXAM' ? '试卷共' : wrongOnly ? '错题共' : favoriteOnly ? '收藏共' : '题库共'
+  const displayTotal = questionTotal || questions.length
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-center gap-3">
-        <span className="whitespace-nowrap text-sm font-medium text-gray-700">{title}</span>
-        <span className="whitespace-nowrap text-sm text-gray-500">
-          {currentIndex + 1}/{questions.length}
-        </span>
-        <ProgressBar current={currentIndex + 1} total={questions.length} />
-        <button
-          onClick={toggleFavorite}
-          className="rounded-lg p-1.5 transition-colors hover:bg-gray-100"
-          aria-label="收藏当前题目"
-        >
-          <Star
-            className={`h-5 w-5 ${
-              currentQuestion && favorites[currentQuestion.id]
-                ? 'fill-yellow-400 text-yellow-400'
-                : 'text-gray-400'
-            }`}
-          />
-        </button>
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-gray-900">{title}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              当前 {currentIndex + 1}/{questions.length}，{totalLabel} {displayTotal} 题
+            </p>
+          </div>
+          <button
+            onClick={toggleFavorite}
+            className="shrink-0 rounded-lg p-1.5 transition-colors hover:bg-gray-100"
+            aria-label="收藏当前题目"
+          >
+            <Star
+              className={`h-5 w-5 ${
+                currentQuestion && favorites[currentQuestion.id]
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : 'text-gray-400'
+              }`}
+            />
+          </button>
+        </div>
+        <div className="mt-3">
+          <ProgressBar current={currentIndex + 1} total={questions.length} />
+        </div>
       </div>
 
       {error && (

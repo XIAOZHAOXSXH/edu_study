@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client'
+import { Prisma, type Question } from '@prisma/client'
 import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 import { authOptions } from '@/lib/authOptions'
@@ -42,9 +42,9 @@ export async function GET(request: Request) {
   const examId = searchParams.get('examId')
   const wrongOnly = searchParams.get('wrongOnly') === 'true'
   const favoriteOnly = searchParams.get('favoriteOnly') === 'true'
-  const limit = Math.min(Number.parseInt(searchParams.get('limit') || '50', 10) || 50, 100)
 
-  let questions = []
+  let questions: Question[] = []
+  let total = 0
 
   if (mode === 'EXAM' && examId) {
     const exam = await prisma.exam.findFirst({ where: { id: examId, userId } })
@@ -56,6 +56,7 @@ export async function GET(request: Request) {
     const found = await prisma.question.findMany({ where: { id: { in: ids } } })
     const byId = new Map(found.map((question) => [question.id, question]))
     questions = ids.map((id) => byId.get(id)).filter((item): item is (typeof found)[number] => Boolean(item))
+    total = questions.length
   } else if (wrongOnly) {
     const wrongRecords = await prisma.answerRecord.findMany({
       where: { userId, isCorrect: false },
@@ -63,12 +64,10 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
     })
     const wrongIds = [...new Set(wrongRecords.map((record) => record.questionId))]
+    total = wrongIds.length
     const found = await prisma.question.findMany({ where: { id: { in: wrongIds } } })
     const byId = new Map(found.map((question) => [question.id, question]))
-    questions = wrongIds
-      .map((id) => byId.get(id))
-      .filter((item): item is (typeof found)[number] => Boolean(item))
-      .slice(0, limit)
+    questions = wrongIds.map((id) => byId.get(id)).filter((item): item is (typeof found)[number] => Boolean(item))
   } else if (favoriteOnly) {
     const favorites = await prisma.favorite.findMany({
       where: { userId },
@@ -76,22 +75,22 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
     })
     const favoriteIds = favorites.map((favorite) => favorite.questionId)
+    total = favoriteIds.length
     const found = await prisma.question.findMany({ where: { id: { in: favoriteIds } } })
     const byId = new Map(found.map((question) => [question.id, question]))
     questions = favoriteIds
       .map((id) => byId.get(id))
       .filter((item): item is (typeof found)[number] => Boolean(item))
-      .slice(0, limit)
   } else {
     const where: Prisma.QuestionWhereInput = {}
     if (category) where.category = category
 
+    total = await prisma.question.count({ where })
     const found = await prisma.question.findMany({
       where,
-      take: mode === 'RANDOM' ? undefined : limit,
       orderBy: { createdAt: 'asc' },
     })
-    questions = mode === 'RANDOM' ? shuffle(found).slice(0, limit) : found
+    questions = mode === 'RANDOM' ? shuffle(found) : found
   }
 
   const favorites = await prisma.favorite.findMany({
@@ -110,6 +109,7 @@ export async function GET(request: Request) {
       }
     }),
     mode,
+    total,
   })
 }
 

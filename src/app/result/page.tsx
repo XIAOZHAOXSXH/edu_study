@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { AlertTriangle, BookOpen, Star } from 'lucide-react'
+import { AlertTriangle, BookOpen, RefreshCw, Star } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
 interface Stats {
@@ -14,21 +14,39 @@ interface Stats {
   wrongQuestions: number
   favoriteCount: number
   totalAnswered: number
+  recalculatedAt?: string
 }
 
 export default function ResultPage() {
   const router = useRouter()
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [recalculating, setRecalculating] = useState(false)
 
   useEffect(() => {
-    fetch('/api/stats')
+    fetch('/api/stats', { cache: 'no-store' })
       .then((response) => response.json())
       .then((data: Stats & { error?: string }) => {
         if (!data.error) setStats(data)
       })
       .catch(() => undefined)
       .finally(() => setLoading(false))
+  }, [])
+
+  const recalculateStats = useCallback(async () => {
+    setRecalculating(true)
+    try {
+      const response = await fetch('/api/stats', {
+        method: 'POST',
+        cache: 'no-store',
+      })
+      const data = (await response.json()) as Stats & { error?: string }
+      if (!data.error) setStats(data)
+    } catch {
+      // Keep the previous statistics visible if recalculation fails.
+    } finally {
+      setRecalculating(false)
+    }
   }, [])
 
   if (loading) {
@@ -62,8 +80,21 @@ export default function ResultPage() {
   return (
     <div className="space-y-6 p-4">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">学习统计</h1>
-        <p className="mt-1 text-sm text-gray-500">累计答题 {stats.totalAnswered} 次</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">学习统计</h1>
+            <p className="mt-1 text-sm text-gray-500">累计答题 {stats.totalAnswered} 次</p>
+          </div>
+          <Button variant="outline" size="sm" loading={recalculating} onClick={() => void recalculateStats()}>
+            {!recalculating && <RefreshCw className="mr-2 h-4 w-4" />}
+            重新统计
+          </Button>
+        </div>
+        {stats.recalculatedAt && (
+          <p className="mt-2 text-xs text-gray-400">
+            最近统计：{new Date(stats.recalculatedAt).toLocaleString()}
+          </p>
+        )}
       </div>
 
       <motion.div

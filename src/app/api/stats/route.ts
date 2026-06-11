@@ -4,18 +4,15 @@ import { authOptions } from '@/lib/authOptions'
 import { prisma } from '@/lib/prisma'
 import { getSessionUserId } from '@/lib/session'
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
-  const userId = getSessionUserId(session)
-  if (!userId) {
-    return NextResponse.json({ error: '未登录' }, { status: 401 })
-  }
-
-  const totalQuestions = await prisma.question.count()
-  const allRecords = await prisma.answerRecord.findMany({
-    where: { userId },
-    select: { isCorrect: true, createdAt: true, questionId: true },
-  })
+async function buildStats(userId: string) {
+  const [totalQuestions, allRecords, favoriteCount] = await Promise.all([
+    prisma.question.count(),
+    prisma.answerRecord.findMany({
+      where: { userId },
+      select: { isCorrect: true, createdAt: true, questionId: true },
+    }),
+    prisma.favorite.count({ where: { userId } }),
+  ])
 
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -27,9 +24,8 @@ export async function GET() {
   const wrongQuestions = new Set(
     graded.filter((record) => record.isCorrect === false).map((record) => record.questionId)
   ).size
-  const favoriteCount = await prisma.favorite.count({ where: { userId } })
 
-  return NextResponse.json({
+  return {
     totalQuestions,
     practicedToday,
     correctRate,
@@ -37,5 +33,28 @@ export async function GET() {
     wrongQuestions,
     favoriteCount,
     totalAnswered: allRecords.length,
+    recalculatedAt: new Date().toISOString(),
+  }
+}
+
+async function handleStatsRequest() {
+  const session = await getServerSession(authOptions)
+  const userId = getSessionUserId(session)
+  if (!userId) {
+    return NextResponse.json({ error: '未登录' }, { status: 401 })
+  }
+
+  return NextResponse.json(await buildStats(userId), {
+    headers: {
+      'Cache-Control': 'no-store',
+    },
   })
+}
+
+export async function GET() {
+  return handleStatsRequest()
+}
+
+export async function POST() {
+  return handleStatsRequest()
 }
