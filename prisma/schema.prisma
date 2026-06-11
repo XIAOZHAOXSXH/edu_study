@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String         @id @default(cuid())
+  username  String         @unique
+  password  String
+  createdAt DateTime       @default(now())
+  answers   AnswerRecord[]
+  exams     Exam[]
+  favorites Favorite[]
+}
+
+model Question {
+  id          String         @id @default(cuid())
+  type        String // SINGLE_CHOICE, MULTIPLE_CHOICE, TRUE_FALSE, FILL_BLANK, SHORT_ANSWER
+  content     String
+  options     String? // JSON string
+  answer      String
+  explanation String?
+  category    String?
+  difficulty  Int?
+  source      String?
+  createdAt   DateTime       @default(now())
+  answers     AnswerRecord[]
+  favorites   Favorite[]
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, questionId])
+}
+
+model AnswerRecord {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  userAnswer String
+  isCorrect  Boolean?
+  aiScore    Float?
+  aiComment  String?
+  mode       String // SEQUENTIAL, RANDOM, EXAM
+  createdAt  DateTime @default(now())
+}
+
+model Exam {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  config      String // JSON string
+  questionIds String // JSON array string
+  score       Float?
+  createdAt   DateTime @default(now())
+}
+
+model AIConfig {
+  id       String  @id @default(cuid())
+  provider String
+  apiKey   String
+  model    String
+  isActive Boolean @default(true)
+}
