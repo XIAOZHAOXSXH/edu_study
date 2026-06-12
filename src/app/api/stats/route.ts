@@ -56,5 +56,17 @@ export async function GET() {
 }
 
 export async function POST() {
-  return handleStatsRequest()
+  const session = await getServerSession(authOptions)
+  const userId = getSessionUserId(session)
+  if (!userId) {
+    return NextResponse.json({ error: '未登录' }, { status: 401 })
+  }
+
+  await prisma.answerRecord.deleteMany({ where: { userId } })
+
+  return NextResponse.json(await buildStats(userId), {
+    headers: {
+      'Cache-Control': 'no-store',
+    },
+  })
 }

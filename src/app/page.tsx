@@ -44,6 +44,9 @@ export default function HomePage() {
   }, [status])
 
   const recalculateStats = useCallback(async () => {
+    const confirmed = window.confirm('确认重新统计？这会清空你的答题记录、正确率和错题统计，题库和收藏不会受影响。')
+    if (!confirmed) return
+
     setStatsLoading(true)
     try {
       const response = await fetch('/api/stats', {

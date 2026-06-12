@@ -34,6 +34,9 @@ export default function ResultPage() {
   }, [])
 
   const recalculateStats = useCallback(async () => {
+    const confirmed = window.confirm('确认重新统计？这会清空你的答题记录、正确率和错题统计，题库和收藏不会受影响。')
+    if (!confirmed) return
+
     setRecalculating(true)
     try {
       const response = await fetch('/api/stats', {
@@ -92,7 +95,7 @@ export default function ResultPage() {
         </div>
         {stats.recalculatedAt && (
           <p className="mt-2 text-xs text-gray-400">
-            最近统计：{new Date(stats.recalculatedAt).toLocaleString()}
+            最近更新：{new Date(stats.recalculatedAt).toLocaleString()}
           </p>
         )}
       </div>
